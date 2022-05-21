@@ -68,11 +68,11 @@ Notes
 =====
 
 At my workplace we're using cron for scheduled Puppet runs, therefore the script
-disables this cron job (`/etc/cron.d/puppet`) along with the agent, and restores
-it when re-enabling the agent. If you don't do scheduled Puppet runs you can use
-the script as-is (a missing cron job will simply be ignored). But if you use a
-different cron job or an entirely different method of scheduling Puppet runs
-you'll have to modify the function `scheduled_runs()` accordingly.
+disables this cron job (`/etc/cron.d/puppet`) when disabling the agent, and
+restores it when re-enabling the agent. If you don't do scheduled Puppet runs
+you can use the script as-is (a missing cron job will simply be ignored). But if
+you use a different cron job or an entirely different method of scheduling
+Puppet runs you'll have to modify the function `scheduled_runs()` accordingly.
 
 The script also assumes that the Puppet client is installed in
 `/opt/puppetlabs`. If you installed it in a different location you need to
