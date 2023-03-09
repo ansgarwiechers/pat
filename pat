@@ -170,7 +170,7 @@ fi
 if [ ! -x "$(command -v puppet)" ]; then
   fail 'Command not found: puppet. Is the Puppet agent installed?'
 fi
-if [ ! -x "$(command -v jq)"]; then
+if [ ! -x "$(command -v jq)" ]; then
   fail 'Command not found: jq. Please install the jq utility.'
 fi
 
