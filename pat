@@ -18,6 +18,8 @@
 puppet_dir='/opt/puppetlabs'
 agent_lockfile="${puppet_dir}/puppet/cache/state/agent_disabled.lock"
 
+kill_timeout='10' # seconds
+
 PATH="${PATH}:${puppet_dir}/bin"
 LANG='C'
 LC_ALL='C'
@@ -82,6 +84,14 @@ scheduled_runs() {
   esac
 }
 
+run_agent() {
+  if [ "${timeout:-0}" -gt 0 ]; then
+    timeout -k "$kill_timeout" "$timeout" puppet agent --test ${environment:+--environment "$environment"} "$@"
+  else
+    puppet agent --test ${environment:+--environment "$environment"} "$@"
+  fi
+}
+
 # == argument parsing =========================================================
 
 print_usage() {
@@ -92,9 +102,9 @@ Wrapper for the Puppet agent to provide a more convenient way of invoking
 frequently used agent operations like enabling/disabling the agent or doing
 dry-runs.
 
-Usage: ${scriptname} [-n] [-f] [-v] [TAG ...]
+Usage: ${scriptname} [-n] [-f] [-v] [-t TIME] [-E ENV] [TAG ...]
        ${scriptname} -d [-f] [-u NAME] [REASON]
-       ${scriptname} -e [-r]
+       ${scriptname} -e [-r] [-t TIME] [-E ENV]
        ${scriptname} -s
        ${scriptname} -h
 
@@ -102,11 +112,14 @@ Usage: ${scriptname} [-n] [-f] [-v] [TAG ...]
 
        -d       Disable the Puppet agent.
        -e       Enable the Puppet agent.
+       -E ENV   Use the given Puppet environment (optional).
        -f       Force agent run when the agent is disabled or force replacement
                 of an already existing disable reason.
        -n       Do a dry-run (noop).
        -r       Run agent after enabling it.
        -s       Show agent status.
+       -t TIME  Agent timeout in seconds (optional). Abort Puppet agent run if
+                it doesn't finish within the given time frame.
        -u NAME  Name to display along with disable reason. The parameter is
                 mandatory unless the environment variable ADMIN_NAME is defined.
                 If both the parameter and the environment variable are set, the
@@ -125,15 +138,18 @@ EOF
   exit "${1:-0}"
 }
 
-while getopts ':defhnrsu:v' OPT; do
+OPTS='deE:fhnrst:u:v'
+while getopts ":${OPTS}" OPT; do
   case "$OPT" in
     d) disable='y';;
     e) enable='y';;
+    E) environment="$OPTARG";;
     f) force='y';;
     h) print_usage;;
     n) noop='y';;
     r) run_after_enable='y';;
     s) show_status='y';;
+    t) timeout="$OPTARG";;
     u) user="$OPTARG";;
     v) verbose='y';;
     [?]) warn "Not implemented: -${OPTARG}"; print_usage 1;;
@@ -165,6 +181,12 @@ elif [ "${show_status:-}" = 'y' ]; then
   action='status'
 fi
 
+timeout="${timeout:-0}"
+if [[ ! "$timeout" =~ ^[0-9]+$ ]]; then
+  warn "Invalid timeout: ${timeout}"
+  print_usage 1
+fi
+
 # == main =====================================================================
 
 if [ ! -x "$(command -v puppet)" ]; then
@@ -192,7 +214,7 @@ case "$action" in
     puppet agent --enable
     scheduled_runs enable
     if [ "${run_after_enable:-}" = 'y' ]; then
-      puppet agent --test || exit_status="${?:-1}"
+      run_agent || exit_status="${?:-1}"
     fi
     ;;
   status)
@@ -209,9 +231,7 @@ case "$action" in
     echo "Puppet Agent: ${agent_status}"
     ;;
   test)
-    declare -a agent_args=(
-      --test
-    )
+    declare -a agent_args=()
     if [ "${noop:-}" = 'y' ]; then
       agent_args+=( --noop )
     fi
@@ -225,14 +245,14 @@ case "$action" in
       reason="$(jq -r '.disabled_message' "$agent_lockfile")"
       if [ "${noop:-}" = 'y' ] || [ "${force:-}" = 'y' ]; then
         puppet agent --enable
-        puppet agent "${agent_args[@]}" || exit_status="${?:-1}"
+        run_agent "${agent_args[@]}" || exit_status="${?:-1}"
         puppet agent --disable "$reason"
         scheduled_runs disable
       elif [ "${noop:-}" != 'y' ]; then
         fail 'No dry-run and agent disabled. Use -f if you want to run the agent anyway.'
       fi
     else
-      puppet agent "${agent_args[@]}" || exit_status="${?:-1}"
+      run_agent "${agent_args[@]}" || exit_status="${?:-1}"
     fi
     ;;
 esac

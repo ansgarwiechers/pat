@@ -35,9 +35,9 @@ Usage
     frequently used agent operations like enabling/disabling the agent or doing
     dry-runs.
 
-    Usage: pat [-n] [-f] [-v] [TAG ...]
+    Usage: pat [-n] [-f] [-v] [-t TIME] [-E ENV] [TAG ...]
            pat -d [-f] [-u NAME] [REASON]
-           pat -e [-r]
+           pat -e [-r] [-t TIME] [-E ENV]
            pat -s
            pat -h
 
@@ -45,11 +45,14 @@ Usage
 
            -d       Disable the Puppet agent.
            -e       Enable the Puppet agent.
+           -E ENV   Use the given Puppet environment (optional).
            -f       Force agent run when the agent is disabled or force replacement
                     of an already existing disable reason.
            -n       Do a dry-run (noop).
            -r       Run agent after enabling it.
            -s       Show agent status.
+           -t TIME  Agent timeout in seconds (optional). Abort Puppet agent run if
+                    it doesn't finish within the given time frame.
            -u NAME  Name to display along with disable reason. The parameter is
                     mandatory unless the environment variable ADMIN_NAME is defined.
                     If both the parameter and the environment variable are set, the
